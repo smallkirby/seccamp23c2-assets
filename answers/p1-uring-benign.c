@@ -66,10 +66,8 @@ int main(void) {
   char buf1[BUF_SIZE + 1] = {0};
   char buf2[BUF_SIZE + 1] = {0};
   char buf3[BUF_SIZE + 1] = {0};
-
   struct io_uring ring;
-  struct io_uring_sqe *sqe = NULL;
-  struct io_uring_cqe *cqe = NULL;
+
   int fd = open_maps();
 
   // ringの初期化
