@@ -1,0 +1,150 @@
+#!/bin/bash
+
+: '
+  UTILITY SCRIPT FOR KERNEL EXPLOIT @ SECCAMP23
+
+  This script helps misc operations for kernel exploit.
+  For usage, run with -h option.
+  For more reach functionality, use lysithea(https://github.com/smallkirby/lysithea).
+
+  Author  : @smallkirby
+  LICENSE : MIT
+'
+
+set -euE -o pipefail
+readonly C_RST="\e[0m"
+readonly C_GREEN="\e[32m"
+readonly C_RED="\e[31m"
+
+function doerr() {
+  local REASON="$1"
+
+  echo ""
+  if [ -n "$REASON" ]; then
+    echo -e "[${C_RED}ERR${C_RST}] $REASON ($BASH_SOURCE @ L$BASH_LINENO)"
+  else
+    echo -e "[${C_RED}ERR${C_RST}] Exiting at ($BASH_SOURCE @ L$LINENUM)"
+  fi
+
+  exit 1
+}
+
+trap 'doerr "failed command: $BASH_COMMAND ${FUNCNAME[2]}" $LINENO' ERR
+
+###############################################
+
+readonly ROOTFS=rootfs.cpio.gz
+readonly ROOTFS_UNCOMP=rootfs.cpio
+readonly RUNSCRIPT=run.sh
+readonly EXTRACTDIR=exted
+readonly SYSTEM_SCRIPT=S999p3land
+readonly SRCDIR=src
+EXPLOITSRC=$SRCDIR/exploit.c
+
+function usage() {
+  echo -e "${C_GREEN}Usage${C_RST}:"
+  echo -e "  $0 <command> [options]"
+
+  echo -e "${C_GREEN}Commands${C_RST}:"
+  echo -e "  extract\tExtract rootfs into $EXTRACTDIR directory"
+  echo -e "  compress\tCompress rootfs from $EXTRACTDIR directory"
+  echo -e "  local\t\tRun exploit locally"
+
+  echo -e "${C_GREEN}Options${C_RST}:"
+  echo -e "  -e\t\tSpecify exploit source file"
+  exit 0
+}
+
+###############################################
+
+function extract() {
+  echo -e "[${C_GREEN}EXTRACT${C_RST}] Extracting rootfs..."
+  echo -e "[${C_GREEN}EXTRACT${C_RST}] $ROOTFS -> $EXTRACTDIR"
+  mkdir -p $EXTRACTDIR
+  cd $EXTRACTDIR
+  zcat ../$ROOTFS | cpio -idv 2>/dev/null
+  cd - >/dev/null
+}
+
+function compress() {
+  echo -e "[${C_GREEN}COMPRESS${C_RST}] Compressing rootfs..."
+  echo -e "[${C_GREEN}COMPRESS${C_RST}] $EXTRACTDIR -> $ROOTFS_UNCOMP"
+
+  if [ ! -d "$EXTRACTDIR" ]; then
+    doerr "run 'extract' command first"
+  fi
+
+  cd $EXTRACTDIR
+  echo -e "[${C_GREEN}COMPRESS${C_RST}] $ROOTFS_UNCOMP -> $ROOTFS"
+  find ./ -print0 | cpio --owner root --null -o --format=newc >../$ROOTFS_UNCOMP || \
+    doerr "failed to compress rootfs"
+  cd - >/dev/null
+  gzip -f $ROOTFS_UNCOMP
+}
+
+function pack_assets() {
+  echo -e "[${C_GREEN}PACK${C_RST}] Packing assets..."
+  cp $SYSTEM_SCRIPT $EXTRACTDIR/etc/init.d/
+  cp ./exploit $EXTRACTDIR/
+}
+
+function build_exploit() {
+  echo -e "[${C_GREEN}BUILD${C_RST}] Building exploit: $EXPLOITSRC"
+	gcc "$EXPLOITSRC" -o exploit --static -masm=intel -luring
+}
+
+function run_local() {
+  build_exploit
+  pack_assets
+  compress
+
+  echo -e "[${C_GREEN}LOCAL${C_RST}] Starting QEMU..."
+  ./$RUNSCRIPT
+  echo -e "[${C_GREEN}LOCAL${C_RST}] QEMU exited."
+}
+
+function main() {
+  if [ $# -eq 0 ]; then
+    usage
+  fi
+
+  local CMD=help
+
+  while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help|help)
+      usage
+      ;;
+    compress)
+      CMD="compress"
+      shift
+      ;;
+    extract)
+      CMD="extract"
+      shift
+      ;;
+    local)
+      CMD="run_local"
+      shift
+      ;;
+    -e)
+      shift;
+      if [ $# -eq 0 ]; then
+        doerr "specify exploit source with -e option"
+      fi
+      EXPLOITSRC=$1
+      shift;
+      if [ ! -f "$EXPLOITSRC" ]; then
+        doerr "invalid exploit source: $EXPLOITSRC"
+      fi
+      ;;
+    *)
+      doerr "invalid option: $1"
+      ;;
+  esac
+  done
+
+  $CMD
+}
+
+main "$@"

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+mdev -s
+mount -t proc none /proc
+stty -opost
+#echo 2 > /proc/sys/kernel/kptr_restrict
+echo 0 >/proc/sys/kernel/kptr_restrict
+#echo 1 > /proc/sys/kernel/dmesg_restrict
+echo 0 >/proc/sys/kernel/dmesg_restrict
+
+chmod 666 /dev/ptmx
+
+chown -R root /root
+chmod 700 /root/*
+
+echo -e "\nBoot took $(cut -d' ' -f1 /proc/uptime) seconds\n"
+cat /etc/logo.txt
+
+setsid cttyhack setuidgid 9999 sh
+#setsid cttyhack setuidgid 0 sh
+
+umount /proc
+poweroff -d 0 -f
