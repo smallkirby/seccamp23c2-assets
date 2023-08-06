@@ -41,6 +41,9 @@ readonly SYSTEM_SCRIPT=S999p3land
 readonly SRCDIR=src
 EXPLOITSRC=$SRCDIR/exploit.c
 
+readonly ALPINE_DOCKER_IMAGE=lysithea-remote-builder
+readonly ALPINE_DOCKER_CONTAINER="$ALPINE_DOCKER_IMAGE"-instance
+
 function usage() {
   echo -e "${C_GREEN}Usage${C_RST}:"
   echo -e "  $0 <command> [options]"
@@ -76,7 +79,7 @@ function compress() {
 
   cd $EXTRACTDIR
   echo -e "[${C_GREEN}COMPRESS${C_RST}] $ROOTFS_UNCOMP -> $ROOTFS"
-  find ./ -print0 | cpio --owner root --null -o --format=newc >../$ROOTFS_UNCOMP || \
+  find ./ -print0 | cpio --owner root --null -o --format=newc >../$ROOTFS_UNCOMP ||
     doerr "failed to compress rootfs"
   cd - >/dev/null
   gzip -f $ROOTFS_UNCOMP
@@ -90,7 +93,32 @@ function pack_assets() {
 
 function build_exploit() {
   echo -e "[${C_GREEN}BUILD${C_RST}] Building exploit: $EXPLOITSRC"
-	gcc "$EXPLOITSRC" -o exploit --static -masm=intel -luring
+  gcc "$EXPLOITSRC" -o exploit --static -masm=intel -luring -pthread
+}
+
+function build_compact_exploit() {
+  echo -e "[${C_GREEN}COMPACT${C_RST}] Building exploit: $EXPLOITSRC"
+
+  local EXPLOIT=exploit
+  local image_existing="$(docker images | grep "$ALPINE_DOCKER_IMAGE" || :)"
+  if [ -z "$image_existing" ]; then
+    echo -e "[${C_GREEN}COMPACT${C_RST}] building docker image to build with musl-libc..."
+    echo -e "  (this might take some minutes, but don't worry this is first-time only)"
+    docker build -t "$ALPINE_DOCKER_IMAGE" - <./Dockerfile
+  fi
+  docker container run \
+    -it \
+    --name "$ALPINE_DOCKER_CONTAINER" \
+    --rm \
+    -v "$PWD:$PWD" \
+    -w "$PWD" \
+    "$ALPINE_DOCKER_IMAGE" /bin/sh -c "gcc $EXPLOITSRC -o $EXPLOIT --static -masm=intel -lpthread -luring"
+
+  sleep 1
+  strip "$EXPLOIT"
+  gzip "$EXPLOIT"
+  base64 "$EXPLOIT".gz >"$EXPLOIT".gz.b64
+  rm -f "$EXPLOIT".gz
 }
 
 function run_local() {
@@ -103,6 +131,16 @@ function run_local() {
   echo -e "[${C_GREEN}LOCAL${C_RST}] QEMU exited."
 }
 
+function run_remote() {
+  build_compact_exploit
+
+  echo -e "[${C_GREEN}REMOTE${C_RST}] Starting remote exploit..."
+  EXPLOIT_BIN=exploit.gz.b64 \
+    EXPLOIT_HOST="sc.skb.pw" \
+    EXPLOIT_PORT="49409" \
+    python2 sender.py r
+}
+
 function main() {
   if [ $# -eq 0 ]; then
     usage
@@ -111,8 +149,8 @@ function main() {
   local CMD=help
 
   while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -h|--help|help)
+    case "$1" in
+    -h | --help | help)
       usage
       ;;
     compress)
@@ -127,13 +165,17 @@ function main() {
       CMD="run_local"
       shift
       ;;
+    remote)
+      CMD="run_remote"
+      shift
+      ;;
     -e)
-      shift;
+      shift
       if [ $# -eq 0 ]; then
         doerr "specify exploit source with -e option"
       fi
       EXPLOITSRC=$1
-      shift;
+      shift
       if [ ! -f "$EXPLOITSRC" ]; then
         doerr "invalid exploit source: $EXPLOITSRC"
       fi
@@ -141,7 +183,7 @@ function main() {
     *)
       doerr "invalid option: $1"
       ;;
-  esac
+    esac
   done
 
   $CMD
