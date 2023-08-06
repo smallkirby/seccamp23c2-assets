@@ -2,3 +2,6 @@ exted
 exploit
 vmlinux
 exploit.gz.b64
+dist
+dist.tar.gz
+vmlinux.tar.gz

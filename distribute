@@ -1,0 +1,13 @@
+#!/bin/bash
+
+assets=(S999p3land sender.py rootfs.cpio.gz run.easy.sh run.hard.sh nirugiri Dockerfile bzImage README.md)
+assets_dirs=(src)
+
+mkdir -p dist
+rm -rf dist/*
+
+cp -r ${assets[@]} dist/
+cp -r ${assets_dirs[@]} dist/
+tar -czvf dist.tar.gz dist
+
+tar -czvf vmlinux.tar.gz vmlinux
