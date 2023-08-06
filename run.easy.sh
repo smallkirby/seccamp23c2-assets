@@ -3,10 +3,10 @@ qemu-system-x86_64 \
   -initrd ./rootfs.cpio.gz \
   -nographic \
   -monitor /dev/null \
-  -cpu kvm64,+smep,+smap \
+  -cpu kvm64,-smep,-smap \
   -net nic,model=virtio \
   -net user \
-  -append "console=ttyS0 oops=panic panic=1 quiet kaslr" \
+  -append "console=ttyS0 oops=panic panic=1 quiet kaslr nopti" \
   -no-reboot \
   -smp 1 \
   -s \
