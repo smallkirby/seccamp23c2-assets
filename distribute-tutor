@@ -1,0 +1,11 @@
+#!/bin/bash
+
+assets=(S999p3land sender.py rootfs.cpio.gz run.easy.sh run.hard.sh nirugiri Dockerfile bzImage README.md)
+assets_dirs=(answers src)
+
+mkdir -p dist
+rm -rf dist/*
+
+cp -r ${assets[@]} dist/
+cp -r ${assets_dirs[@]} dist/
+tar -czvf dist-tutor.tar.gz dist

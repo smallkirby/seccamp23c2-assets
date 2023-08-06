@@ -4,4 +4,5 @@ vmlinux
 exploit.gz.b64
 dist
 dist.tar.gz
+dist-tutor.tar.gz
 vmlinux.tar.gz
