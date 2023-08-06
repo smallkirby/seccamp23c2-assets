@@ -134,9 +134,12 @@ function run_local() {
 function run_remote() {
   build_compact_exploit
 
+  #local HOST=sc.skb.pw
+  local HOST=localhost
+
   echo -e "[${C_GREEN}REMOTE${C_RST}] Starting remote exploit..."
   EXPLOIT_BIN=exploit.gz.b64 \
-    EXPLOIT_HOST="sc.skb.pw" \
+    EXPLOIT_HOST="$HOST" \
     EXPLOIT_PORT="49409" \
     python2 sender.py r
 }
