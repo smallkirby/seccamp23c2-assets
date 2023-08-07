@@ -115,6 +115,7 @@ function build_compact_exploit() {
     "$ALPINE_DOCKER_IMAGE" /bin/sh -c "gcc $EXPLOITSRC -o $EXPLOIT --static -masm=intel -lpthread -luring"
 
   sleep 1
+  sudo chown "$USER" "$EXPLOIT"
   strip "$EXPLOIT"
   gzip "$EXPLOIT"
   base64 "$EXPLOIT".gz >"$EXPLOIT".gz.b64
