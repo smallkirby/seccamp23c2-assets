@@ -16,6 +16,11 @@ that you need to implement.
 - `dist.tar.gz`: Set of challenges and answers.
 - `vmlinux.tar.gz`: `vmlinux` with debug symbols of kernel v5.14 with io_uring bug.
 
+## Note
+
+The final exploit strategy has low reliability.
+To stabilize the exploit, refer to the lecture slide.
+
 ## Thanks
 
 This lecture was made possible by the contribution of [TSG](https://tsg.ne.jp/) members.
