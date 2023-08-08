@@ -13,8 +13,14 @@ that you need to implement.
 
 ## Distributed Files
 
+Distribution file is provided
+You can get distributed assets at [GitHub Release page](https://github.com/smallkirby/seccamp23c2-assets/releases/tag/release).
+
 - `dist.tar.gz`: Set of challenges and answers.
 - `vmlinux.tar.gz`: `vmlinux` with debug symbols of kernel v5.14 with io_uring bug.
+- `seccamp23c2-slide.pdf`: Slide for the lecture.
+  - Written in Japanese.
+  - Note that this slide simplifies some description.
 
 ## Note
 
